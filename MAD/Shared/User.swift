@@ -8,7 +8,7 @@
 
 import Foundation
 
-nonisolated struct User: Codable {
+nonisolated struct User: Codable, Hashable {
     let localId: String
     let email: String
     let displayName: String

@@ -9,9 +9,13 @@ import SwiftUI
 
 @main
 struct MADApp: App {
+    private let networkingService = NetworkingService()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            NavigationStack {
+                LoginView(networkingService: networkingService)
+            }
         }
     }
 }

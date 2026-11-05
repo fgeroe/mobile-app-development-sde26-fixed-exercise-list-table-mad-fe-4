@@ -1,20 +1,22 @@
 //
-//  ContentView.swift
+//  LoginView.swift
 //  MAD
 //
-//  Created by Fabian Gerö on 21.09.26.
+//  Created by Fabian Gerö on 05.11.26.
 //
+
 
 import SwiftUI
 
-struct ContentView: View {
+struct LoginView: View {
     private enum Field {
         case email
         case password
     }
-    
-    private let networkingService = NetworkingService()
-    
+
+    let networkingService: NetworkingService
+
+    @State private var loggedInUser: User?
     @State private var email = ""
     @State private var password = ""
     @State private var isLoading = false
@@ -22,22 +24,22 @@ struct ContentView: View {
     @State private var showAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
-    
+
     @FocusState private var focusedField: Field?
-    
+
     private var isEmailInvalid: Bool {
         showValidationError && email.isEmpty
     }
-    
+
     private var isPasswordInvalid: Bool {
         showValidationError && password.isEmpty
     }
-    
+
     var body: some View {
         VStack(spacing: 24) {
             Text("Login")
                 .font(.largeTitle.weight(.bold))
-            
+
             form
             logInButton
         }
@@ -51,8 +53,12 @@ struct ContentView: View {
         } message: {
             Text(alertMessage)
         }
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(item: $loggedInUser) { user in
+            CountriesView(networkingService: networkingService, user: user)
+        }
     }
-    
+
     private var form: some View {
         VStack(alignment: .leading, spacing: 16) {
             inputRow("Email", systemImage: "envelope", isFocused: focusedField == .email, isInvalid: isEmailInvalid) {
@@ -67,7 +73,7 @@ struct ContentView: View {
                         focusedField = .password
                     }
             }
-            
+
             inputRow("Password", systemImage: "lock", isFocused: focusedField == .password, isInvalid: isPasswordInvalid) {
                 SecureField("Password", text: $password)
                     .textContentType(.password)
@@ -76,7 +82,7 @@ struct ContentView: View {
                     .focused($focusedField, equals: .password)
                     .onSubmit(logIn)
             }
-            
+
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.circle.fill")
                 Text("Please enter your email and password.")
@@ -86,7 +92,7 @@ struct ContentView: View {
             .opacity(isEmailInvalid || isPasswordInvalid ? 1 : 0)
         }
     }
-    
+
     private var logInButton: some View {
         Button(action: logIn) {
             HStack(spacing: 10) {
@@ -106,7 +112,7 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
     }
-    
+
     private func inputRow<Input: View>(
         _ title: LocalizedStringKey,
         systemImage: String,
@@ -118,13 +124,13 @@ struct ContentView: View {
             Text(title)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(.secondary)
-            
+
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
                     .foregroundStyle(isInvalid ? AnyShapeStyle(.red) : AnyShapeStyle(.secondary))
                     .frame(width: 20)
                     .accessibilityHidden(true)
-                
+
                 input()
             }
             .padding(.horizontal, 14)
@@ -137,7 +143,7 @@ struct ContentView: View {
             .animation(.easeOut(duration: 0.15), value: isFocused)
         }
     }
-    
+
     private func borderStyle(isFocused: Bool, isInvalid: Bool) -> AnyShapeStyle {
         if isInvalid {
             return AnyShapeStyle(.red)
@@ -147,10 +153,10 @@ struct ContentView: View {
         }
         return AnyShapeStyle(Color.clear)
     }
-    
+
     private func logIn() {
         guard !isLoading else { return }
-        
+
         guard !email.isEmpty, !password.isEmpty else {
             withAnimation {
                 showValidationError = true
@@ -158,55 +164,32 @@ struct ContentView: View {
             focusedField = email.isEmpty ? .email : .password
             return
         }
-        
+
         showValidationError = false
         focusedField = nil
         isLoading = true
-        
+
         networkingService.login(email: email, password: password) { user, error in
             isLoading = false
-            
+
             if let user {
-                presentAlert(title: "Logged in", message: "You're now logged in as \(user.email).")
+                password = ""
+                loggedInUser = user
             } else if let error {
-                presentAlert(title: "Login failed", message: errorMessage(for: error))
+                presentAlert(title: "Login failed", message: error.message)
             }
         }
     }
-    
+
     private func presentAlert(title: String, message: String) {
         alertTitle = title
         alertMessage = message
         showAlert = true
     }
-    
-    private func errorMessage(for error: NetworkingError) -> String {
-        switch error {
-        case .serializationFailed(let description):
-            return "Your login data couldn't be prepared. \(description)"
-        case .invalidEmail:
-            return "Please enter a valid email address."
-        case .emailNotFound:
-            return "There's no account with this email address."
-        case .wrongPassword:
-            return "The password is incorrect. Please try again."
-        case .invalidCredentials:
-            return "The email or password is incorrect. Please try again."
-        case .offline(let description):
-            return description
-        case .invalidResponseFormat:
-            return "The server sent a response that couldn't be read. Please try again later."
-        case .serverError(let statusCode, let message):
-            if let message {
-                return "The server returned an error (\(statusCode)): \(message)"
-            }
-            return "The server returned an error (\(statusCode)). Please try again later."
-        case .unexpected(let description):
-            return description
-        }
-    }
 }
 
 #Preview {
-    ContentView()
+    NavigationStack {
+        LoginView(networkingService: NetworkingService())
+    }
 }
